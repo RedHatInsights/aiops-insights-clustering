@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: systems-clustering-job
+parameters:
+- description: The name for job
+  from: 'systems-clustering-job-[a-z0-9]{4}'
+  generate: expression
+  name: JOB_NAME
+  required: true
+- description: Label for the job
+  name: LABEL_APP_NAME
+  value: 'systems-clustering'
+- name: CLUSTER_IMAGE
+  description: Image that the job will use (defaults to s2i image systems-clustering)
+  required: true
+  value: systems-clustering
+- name: CEPH_KEY
+  required: true
+- name: CEPH_SECRET
+  required: true
+- name: CEPH_ENDPOINT
+  required: true
+
+objects:
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: ${JOB_NAME}
+    labels:
+      app: ${LABEL_APP_NAME}
+  spec:
+    parallelism: 1
+    completions: 1
+    template:
+      metadata:
+        name: ${JOB_NAME}
+      spec:
+        containers:
+        - name: ${JOB_NAME}
+          image: ${CLUSTER_IMAGE}:latest
+          imagePullPolicy: Always
+          env:
+          - name: CEPH_KEY
+            value: "${CEPH_KEY}"
+          - name: CEPH_SECRET
+            value: "${CEPH_SECRET}"
+          - name: CEPH_ENDPOINT
+            value: "${CEPH_ENDPOINT}"
+        restartPolicy: Never
