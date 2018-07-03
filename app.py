@@ -9,8 +9,8 @@ import os
 
 
 def pandas_dataframe():
-    (ceph_key, ceph_secret, ceph_host) = (os.getenv('DH_CEPH_KEY'), os.getenv('DH_CEPH_SECRET'), os.getenv('CEPH_HOST'))
-    client_kwargs = { 'endpoint_url' : ceph_host }
+    (ceph_key, ceph_secret, ceph_endpoint) = (os.getenv('CEPH_KEY'), os.getenv('CEPH_SECRET'), os.getenv('CEPH_ENDPOINT'))
+    client_kwargs = { 'endpoint_url' : ceph_endpoint }
 
     if not ceph_key:
         # This is to run local
