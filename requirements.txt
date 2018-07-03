@@ -1,0 +1,6 @@
+pandas
+numpy
+sklearn
+s3fs
+pyarrow
+scipy
