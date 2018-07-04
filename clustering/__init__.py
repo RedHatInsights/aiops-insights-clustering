@@ -50,7 +50,6 @@ def cluster():
     # global incident_labels, m, n, pd_allin
     pd_rules = pandas_dataframe()
     np_rules = pd_rules.as_matrix()
-    sysid = np_rules[:, 1]
     labels = list(pd_rules.columns.values)
     allin = np_rules[:, 3:]
     allin_labels = labels[3:]
@@ -65,8 +64,6 @@ def cluster():
     data = pd.DataFrame(np_scaled)
     pca = PCA()
     pca.fit(data)
-    cumsum = np.cumsum(pca.explained_variance_ratio_)
-    d = np.argmax(cumsum >= 0.95) + 1
     pca = PCA(n_components=3)
     data = pca.fit_transform(data)
     min_max_scaler = preprocessing.StandardScaler()
@@ -75,7 +72,6 @@ def cluster():
     # Choose the k by using elbow method
     n_cluster = range(1, 50)
     kmeans = [KMeans(n_clusters=i).fit(data) for i in n_cluster]
-    scores = [kmeans[i].score(data) for i in range(len(kmeans))]
     # The ultimate output: system with its associated cluster id -- pd_allin['cluster']
     pd_allin['cluster'] = kmeans[4].predict(data)
     pd_allin['principal_feature1'] = data[0]
