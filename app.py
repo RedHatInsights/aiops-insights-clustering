@@ -2,6 +2,10 @@ import os
 import pickle
 import clustering
 from flask import Flask
+import storage
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 cluster = None
@@ -26,6 +30,20 @@ def update():
     pickle.dump(cluster, open('cluster.p', 'wb'))
 
     return "Clustering updated"
+
+
+def sync():
+    for key, date in storage.unprocessed():
+        try:
+            logging.info(f"Processing data for {date}")
+            df = storage.get_dataset(key)
+            logging.info(f"Running clustering...")
+            cluster = clustring.cluster(df)
+            logging.info(f"Writing results...")
+            storage.write(cluster, date)
+        except Exception:
+            logging.exception(f"Failed to process data for {date}")
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
