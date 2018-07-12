@@ -3,20 +3,7 @@ import numpy as np
 from sklearn import preprocessing
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-import pyarrow.parquet as pq
-import s3fs
-import os
 
-def pandas_dataframe():
-    (ceph_key, ceph_secret, ceph_endpoint) = (os.getenv('CEPH_KEY'), os.getenv('CEPH_SECRET'), os.getenv('CEPH_ENDPOINT'))
-    client_kwargs = { 'endpoint_url' : ceph_endpoint }
-
-    if not ceph_key:
-        # This is to run local
-        return pq.ParquetDataset('./data/').read_pandas().to_pandas()
-    else:
-        s3 = s3fs.S3FileSystem(secret=ceph_secret, key=ceph_key, client_kwargs=client_kwargs)
-        return pq.ParquetDataset('DH-DEV-INSIGHTS/2018-06-01/rule_data', filesystem=s3).read_pandas().to_pandas()
 
 def find_incident(labels):
     res = set()
@@ -24,6 +11,7 @@ def find_incident(labels):
         if labels[i].startswith('i_'):
             res.add(i)
     return res
+
 
 # numpy array construction
 def construct_np_allin(allin, m, n, incident_labels):
@@ -46,9 +34,8 @@ def construct_np_allin(allin, m, n, incident_labels):
     return np_allin
 
 
-def cluster():
+def cluster(pd_rules):
     # global incident_labels, m, n, pd_allin
-    pd_rules = pandas_dataframe()
     np_rules = pd_rules.as_matrix()
     labels = list(pd_rules.columns.values)
     allin = np_rules[:, 3:]
@@ -78,5 +65,3 @@ def cluster():
     pd_allin['principal_feature2'] = data[1]
     pd_allin['cluster'].value_counts()
     return pd_allin['cluster']
-
-

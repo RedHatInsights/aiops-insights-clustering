@@ -1,31 +1,35 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+import json
 import os
 import pickle
-import clustering
+from concurrent.futures import ProcessPoolExecutor
 from flask import Flask
+import clustering
+import storage
+import sync
 
 app = Flask(__name__)
-cluster = None
-if os.path.isfile('cluster.p'):
-    cluster = pickle.load(open('cluster.p', 'rb'))
 
+CLUSTERS = {date: storage.read(date) for date in set(storage.available())}
 
-@app.route("/")
-def index():
-    global cluster
-
-    if cluster is not None:
-        return "<pre>%s</pre>" % cluster.to_string()
+@app.route("/<date>")
+def index(date):
+    if date in CLUSTERS:
+        return "<pre>%s</pre>" % CLUSTERS[date].to_string()
     else:
-        return "hit /update to create the clustering"
+        return json.dumps(list(storage.available()))
 
-@app.route("/update")
-def update():
-    global cluster
 
-    cluster = clustering.cluster()
-    pickle.dump(cluster, open('cluster.p', 'wb'))
+@app.route("/sync")
+def sync_endpoint():
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        f = executor.submit(sync.sync)
+        logging.info("Running sync job %s", f)
+    return "OK"
 
-    return "Clustering updated"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
