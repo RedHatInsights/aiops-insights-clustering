@@ -4,10 +4,8 @@ logging.basicConfig(level=logging.INFO)
 
 import json
 import os
-import pickle
 from concurrent.futures import ProcessPoolExecutor
 from flask import Flask
-import clustering
 import storage
 import sync
 
@@ -18,7 +16,7 @@ CLUSTERS = {date: storage.read(date) for date in set(storage.available())}
 @app.route("/<date>")
 def index(date):
     if date in CLUSTERS:
-        return "<pre>%s</pre>" % CLUSTERS[date].to_string()
+        return CLUSTERS[date].to_json()
     else:
         return json.dumps(list(storage.available()))
 
