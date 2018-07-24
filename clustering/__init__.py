@@ -61,7 +61,7 @@ def cluster(pd_rules):
     kmeans = [KMeans(n_clusters=i).fit(data) for i in n_cluster]
     # The ultimate output: system with its associated cluster id -- pd_allin['cluster']
     pd_allin['cluster'] = kmeans[4].predict(data)
-    pd_allin['principal_feature1'] = data[0]
-    pd_allin['principal_feature2'] = data[1]
-    pd_allin['cluster'].value_counts()
-    return pd_allin['cluster']
+    # pd_allin['principal_feature1'] = data[0]
+    # pd_allin['principal_feature2'] = data[1]
+    pd_allin['system_id'] = pd_rules['system_id']
+    return dict(zip(pd_allin['system_id'], pd_allin['cluster']))

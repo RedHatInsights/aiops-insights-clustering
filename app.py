@@ -16,7 +16,7 @@ CLUSTERS = {date: storage.read(date) for date in set(storage.available())}
 @app.route("/<date>")
 def index(date):
     if date in CLUSTERS:
-        return CLUSTERS[date].to_json()
+        return json.dumps(CLUSTERS[date])
     else:
         return json.dumps(list(storage.available()))
 
