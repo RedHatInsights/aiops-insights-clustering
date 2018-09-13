@@ -1,0 +1,11 @@
+FROM centos/python-36-centos7
+
+# Install requirements
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
+
+# Copy over our codebase and export the app
+COPY . /aicoe-insights-clustering
+WORKDIR /aicoe-insights-clustering
+EXPOSE 8080
+CMD [ "python", "app.py" ]
