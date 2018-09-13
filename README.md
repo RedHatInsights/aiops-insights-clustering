@@ -70,3 +70,28 @@ app.py:50: FutureWarning: Method .as_matrix will be removed in a future version.
 40161    1
 Name: cluster, Length: 40162, dtype: int32
 ```
+
+## Local build
+
+If you would like to deploy the clustering service locally, you can build the container using [S2I](https://github.com/openshift/source-to-image)
+
+```
+❯ s2i build -c . centos/python-36-centos7 aicoe-insights-clustering
+```
+
+For convenience you can store your desired environment variables in a separate file
+
+```
+❯ cat << EOT >> env.list
+FLASK_ENV=development
+CEPH_KEY=...
+CEPH_SECRET=...
+CEPH_ENDPOINT=...
+EOT
+```
+
+And then run it as a Docker container
+
+```
+❯ docker run --env-file env.list  -p 8080:8080 -it aicoe-insights-clustering
+```
