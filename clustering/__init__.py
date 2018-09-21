@@ -1,24 +1,12 @@
 import pandas as pd
-import numpy as np
 from sklearn import preprocessing
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
-def _create_incidents_matrix(dataframe):
-    false_values = [False, 'False', None, 'None', 0]
-    # Map values to binary
-    transformed = np.isin(dataframe.values, false_values, invert=True)
-    # Add counts of incident labels set to 1
-    counts = np.count_nonzero(dataframe.loc[:, dataframe.columns.str.startswith('i_')], axis=1)
-    counts = counts.reshape(counts.shape[0],-1)
-    # Add the counts as a last column for each entry
-    return np.hstack((transformed, counts))
-
 def cluster(pd_rules):
-    np_allin = _create_incidents_matrix(pd_rules)
+    pd_allin = ~pd_rules.isin([False, 'False', None, 'None', 0])
 
     # TODO: Fix me
-    pd_allin = pd.DataFrame(data=np_allin[:, :-1], columns=allin_labels)
     # Kmeans clustering model pipeline
     min_max_scaler = preprocessing.StandardScaler()
     np_scaled = min_max_scaler.fit_transform(pd_allin)
