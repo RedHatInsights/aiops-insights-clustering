@@ -3,7 +3,12 @@ from sklearn import preprocessing
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
-def cluster(pd_rules):
+def cluster(pd_rules: pd.DataFrame) -> dict:
+    """
+    Cluster data
+
+    Normalize data and than run KMeans on it (categorize into 5 clusters)
+    """
     pd_allin = ~pd_rules.isin([False, 'False', None, 'None', 0])
 
     # TODO: Fix me
