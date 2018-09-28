@@ -4,6 +4,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 import clustering
 import storage
+import stability_score as ss
 
 def sync():
     for key, date in storage.unprocessed():
@@ -16,6 +17,9 @@ def sync():
             storage.write(cluster, date)
         except Exception:
             logging.exception(f"Failed to process data for {date}")
+
+    logging.info(f"Scoring stability...")
+    ss.run_clustering()
 
 
 if __name__ == "__main__":
