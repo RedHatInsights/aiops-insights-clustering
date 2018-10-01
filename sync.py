@@ -4,6 +4,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 import clustering
 import storage
+import stability_score as ss
 
 def sync():
     for key, date in storage.unprocessed():
