@@ -8,6 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 from flask import Flask
 import storage
 import sync
+import metric_tracking as mt
 
 app = Flask(__name__)
 
@@ -30,6 +31,10 @@ def sync_endpoint():
 
 
 if __name__ == "__main__":
+    if "MLFLOW_TRACKING_URI" in os.environ:
+        logging.info(f"Scoring stability...")
+        mt.run_clustering()
+
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
