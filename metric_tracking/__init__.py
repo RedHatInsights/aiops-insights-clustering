@@ -16,6 +16,8 @@ import pyarrow.parquet as pq
 import mlflow
 import mlflow.sklearn
 
+import ceph
+
 
 def preprocess_rules_data(DF):
 	
@@ -151,6 +153,7 @@ def run_clustering():
 		# Run Kmeans on our dataset for day 1 and collect the lables
 		kmeans_1 = KMeans(n_clusters=k_clusters).fit(data_transformed_1)
 		labels_1 = kmeans_1.labels_
+		centroids_1 = kmeans_1.cluster_centers_
 
 		# create a list of the system ids associates with the first day's data set
 		sysids_1 = rulesx_day_1.iloc[:,-2]
@@ -161,6 +164,7 @@ def run_clustering():
 		# Run Kmeans on our day 2 dataset and collect the labels
 		kmeans_2 = KMeans(n_clusters=k_clusters).fit(data_transformed_2)
 		labels_2 = kmeans_2.labels_
+		centroids_2 = kmeans_2.cluster_centers_
 
 		# Create a list od the system ids associated with the second day's data set
 		sysids_2 = rulesx_day_2.iloc[:,-2]
@@ -191,7 +195,7 @@ def run_clustering():
 		day_2 = group_clusters(x,k_clusters)
 
 		# Calculate the similarity between the two days. 
-		stability_score = calculate_stability_score(day_1,day_2,k_clusters,ids_in_both_days)
+		stability_score = calculate_stability_score(day_1, day_2, k_clusters, ids_in_both_days)
 
 		mlflow.log_param("K-Clusters", k_clusters )
 		mlflow.log_param("PCA_Dimensions", pca_dimensions)   
@@ -199,3 +203,10 @@ def run_clustering():
 		mlflow.log_param("Date 1", date_1)
 		mlflow.log_param("Date 2", date_2)
 		mlflow.log_metric("cluster_stability", stability_score)	
+
+		# Store results in Ceph
+		# Need centroids (ndarray) to reinitialize K-means object
+		data = {'day1': {'labels': labels_1, 'centroids': centroids_1, 'results': results_1}, 
+				'day2': {'labels': labels_2, 'centroids': centroids_2, 'results': results_2},
+				'stability': stability_score}
+		ceph.write(data)
