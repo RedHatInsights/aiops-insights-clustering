@@ -76,7 +76,7 @@ def run_clustering():
 
 	# MLFlow Paramters
 	mlflow_experiment_id = os.environ.get('MLFLOW_EXPERIMENT_ID')
-	mlflow_tracking_ui  = os.environ.get("MLFLOW_TRACKING_UI")
+	mlflow_tracking_uri  = os.environ.get("MLFLOW_TRACKING_URI")
 
 	
 	# Model Parameters
@@ -199,7 +199,3 @@ def run_clustering():
 		mlflow.log_param("Date 1", date_1)
 		mlflow.log_param("Date 2", date_2)
 		mlflow.log_metric("cluster_stability", stability_score)	
-
-
-if __name__ == "__main__":
-	run_clustering()

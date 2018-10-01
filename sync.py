@@ -18,9 +18,6 @@ def sync():
         except Exception:
             logging.exception(f"Failed to process data for {date}")
 
-    logging.info(f"Scoring stability...")
-    ss.run_clustering()
-
 
 if __name__ == "__main__":
     sync()
