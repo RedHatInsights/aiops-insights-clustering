@@ -24,6 +24,14 @@ def calculate_score(date_a, date_b):
     for cluster_id in inverse_cluster_a.keys():
         systems_a = frozenset(inverse_cluster_a[cluster_id])
         systems_b = frozenset(inverse_cluster_b[cluster_id])
+        # So now if you have 100 system ids in first and 160 in second
+        # (100 are the same and we have 60 new), you'll count the score as
+        # 100 / (100+160/2) = 100 / 130 = 0.76.
+        # While it should be 1, if the 100 systems were clustered the same.
+        # We can't say anything about the 60 new systems (unless we do other analysis of them),
+        # so those needs to be ignored.
+        # TODO: only look at systems present in both runs
+
         number_ids_in_both = len(systems_a.intersection(systems_b))
 
         median_number_ids_in_cluster = (len(systems_a) + len(systems_b)) / 2.0
