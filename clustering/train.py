@@ -4,12 +4,15 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans, SpectralClustering
+from sklearn.tree import DecisionTreeClassifier
 
 import pickle
 
 class Cluster:
 	def __init__(self, pd_rules):
 		self.data = pd_rules
+
+		self.data_for_kmeans = None #zscore -> pca -> zscore
 
 		self.n_clusters_low = n_clusters_low
 		self.n_clusters_high = n_clusters_high
@@ -117,21 +120,48 @@ class Cluster:
 	def load_model(self, filename):
 		return pickle.load(open(filename))	
 
+	def interpret(self):
+		if not self.kmeans_optimal:
+			raise AttributeError("Attribute kmeans_optimal not found. Please train model first.")
+
+		return None
+		'''
+		cl = self.kmeans_optimal.predict(self.data_for_kmeans)
+
+		df = pd.DataFrame(self.kmeans_optimal.cluster_centers_, columns = self.data_preprocess.columns)
+		df['cl'] = np.arange(df.shape[0])
+
+		model_dtree = DecisionTreeClassifier(max_depth=20)
+
+		model_dtree.fit(df.drop('cl', axis=1), df['cl'])
+
+		#TODO: generate descriptions from paths
+		path = model_dtree.decision_path(df.drop('cl', axis=1))
+		path_index = path.indices[path.indptr[0]:path.indptr[1]]
+
+		def get_path(example_row, data, col_names, thresholds):
+		    traversed_nodes = path_nodes.indices[path_nodes.indptr[example_row]:path_nodes.indptr[example_row+1]]
+	    	for node in traversed_nodes:
+	        	print(f"Node hit: {features[node]} {col_names[node]} {100*thresholds[node]} {data[example_row][node]}")
+		'''
+
 	def train(self):
 		#1-hot and drop columns
-		df_preprocess = self.preprocess(self.data)
+		self.data_preprocess = self.preprocess(self.data)
 
 		#z-score -> pca -> z-score
-		df_cluster_dict = self.preprocess_prepare_for_clustering(self, df_preprocess, pca_variance_threshold=0.99)		
+		df_cluster_dict = self.preprocess_prepare_for_clustering(self, self.data_preprocess, pca_variance_threshold=0.99)		
 
 		#df for clustering
 		df_postpca_scaled = df_cluster_dict['df_postpca_scaled']
 
-		self.models_dict, self.inertia_dict = self.find_nclusters(self, df_postpca_scaled, self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize):
+		self.data_for_kmeans = df_postpca_scaled
+
+		self.models_dict, self.inertia_dict = self.find_nclusters(self, self.data_for_kmeans, self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize):
 
 		self.n_clusters_optimal = self.find_elbow(self.inertia_dict)
 
-		self.kmeans_optimal = self.train_cluster(df_postpca_scaled, self.n_clusters_optimal)
+		self.kmeans_optimal = self.train_cluster(self.data_for_kmeans, self.n_clusters_optimal)
 
 		#replace by ceph store
 		self.save_model(df_cluster_dict['prepca_scaler'], 'prepca_scaler')
