@@ -11,9 +11,21 @@ class Cluster:
 	def __init__(self, pd_rules):
 		self.data = pd_rules
 
-	def preprocess(self):
-		self.data = self.preprocess_dropcols(self.data)
-		self.data = self.preprocess_onehot(self.data)
+		self.n_clusters_low = n_clusters_low
+		self.n_clusters_high = n_clusters_high
+		self.n_clusters_stepsize = n_clusters_stepsize
+
+		self.models_dict = None
+		self.inertia_dict = None
+
+		self.n_clusters_optimal = None
+		self.kmeans_optimal = None
+
+	def preprocess(self, df):
+		df = self.preprocess_dropcols(df)
+		df = self.preprocess_onehot(df)
+
+		return df
 
 	def preprocess_onehot(self, df):
 		'''one-host encoding
@@ -36,7 +48,7 @@ class Cluster:
 
 		assert len(r_cols)+len(c_cols)+len(i_cols)>0, "Input data does not contain columns starting with r_*, c_* and i_*"
 
-		return df[r_cols]
+		return df[r_cols].copy()
 
 	def preprocess_pca(self, df, pca_variance_threshold=0.99):
 		pca = PCA()
@@ -103,5 +115,27 @@ class Cluster:
 		pickle.dump(model, open(filename, 'wb'))
 
 	def load_model(self, filename):
-		return pickle.load(open(filename))		
+		return pickle.load(open(filename))	
 
+	def train(self):
+		#1-hot and drop columns
+		df_preprocess = self.preprocess(self.data)
+
+		#z-score -> pca -> z-score
+		df_cluster_dict = self.preprocess_prepare_for_clustering(self, df_preprocess, pca_variance_threshold=0.99)		
+
+		#df for clustering
+		df_postpca_scaled = df_cluster_dict['df_postpca_scaled']
+
+		self.models_dict, self.inertia_dict = self.find_nclusters(self, df_postpca_scaled, self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize):
+
+		self.n_clusters_optimal = self.find_elbow(self.inertia_dict)
+
+		self.kmeans_optimal = self.train_cluster(df_postpca_scaled, self.n_clusters_optimal)
+
+		#replace by ceph store
+		self.save_model(df_cluster_dict['prepca_scaler'], 'prepca_scaler')
+		self.save_model(df_cluster_dict['postpca_scaler'], 'postpca_scaler')
+		self.save_model(df_cluster_dict['pca'], 'pca')
+
+		self.save_model(self.kmeans_optimal, "kmeans_optimal")
