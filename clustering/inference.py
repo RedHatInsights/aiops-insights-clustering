@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 
-import train
+from train import Train
 
-class Inference(Train):
+class Inference(train.Train):
 	def __init__(self, pd_rules):
 		super().__init__(pd_rules)
 

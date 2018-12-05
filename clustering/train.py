@@ -5,11 +5,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.pipeline import Pipeline
 
 import pickle
 
 class Cluster:
-	def __init__(self, pd_rules):
+	def __init__(self, pd_rules, n_clusters_low=2, n_clusters_high=50, n_clusters_stepsize=5):
 		self.data = pd_rules
 
 		self.data_for_kmeans = None #zscore -> pca -> zscore
@@ -24,27 +25,40 @@ class Cluster:
 		self.n_clusters_optimal = None
 		self.kmeans_optimal = None
 
-	def preprocess(self, df):
-		df = self.preprocess_dropcols(df)
-		df = self.preprocess_onehot(df)
+	def preprocess(self, df, categorical_cols=None, drop_cols=None):
+		df = self.preprocess_dropcols(df, drop_cols=drop_cols)
+		df = self.preprocess_onehot(df, categorical_cols=categorical_cols)
 
 		return df
 
-	def preprocess_onehot(self, df):
+	def preprocess_onehot(self, df, categorical_cols=None):
 		'''one-host encoding
 		'''
+
+		if categorical_cols is None: #if list of categorical cols not passed, one-hot encode everything
+			categorical_cols = df.columns
+			df_rest = pd.DataFrame()
+		else:
+			df_rest = df.drop(categorical_cols, axis=1) #non-categorical columns
+
 		df_list = []
-		for col in df:
+		for col in categorical_cols:
 		    df_onehot = pd.get_dummies(df[col], prefix=col)
 		    df_list.append(df_onehot)
-		df_onehot = pd.concat(df_list, axis=1)		
+		df_onehot = pd.concat(df_list, axis=1) #concat all one-hot encoded cols
+
+		df_onehot = pd.concat([df_onehot, df_rest], axis=1) #concat non-categorical cols
 
 		return df_onehot
 
-	def preprocess_dropcols(self, df):
+	def preprocess_dropcols(self, df, drop_cols=None):
 		'''Only keep rules columns
 		Makes assumptions about data columns
 		'''
+		if drop_cols:
+			return df.drop(drop_cols, axis=1).copy()
+
+		#very rules-data specific below
 		r_cols = [col for col in df_cluster.columns if col.find('r_')==0]
 		c_cols = [col for col in df_cluster.columns if col.find('c_')==0]
 		i_cols = [col for col in df_cluster.columns if col.find('i_')==0]
@@ -53,15 +67,22 @@ class Cluster:
 
 		return df[r_cols].copy()
 
+	def preprocess_dropnulls(self, df):
+		'''Make more sophisticated
+		'''
+
+		return df.fillna(0)
+
 	def preprocess_pca(self, df, pca_variance_threshold=0.99):
 		pca = PCA()
 
 		df_pca = pca.fit_transform(df)
+		df_pca = pd.DataFrame(df_pca)
 
 		variance_cumsum = np.cumsum(pca.explained_variance_ratio_)
 
 		gt_threshold = variance_cumsum[variance_cumsum > pca_variance_threshold]
-		if len(gt_threshold):
+		if len(gt_threshold)==0:
 			n_components = df.shape[1]
 		else:
 			n_components = np.where(variance_cumsum==gt_threshold[0])[0][0]
@@ -70,7 +91,8 @@ class Cluster:
 
 	def preprocess_normalize(self, df):
 		scaler = StandardScaler()
-		df_scaled = datascaler.fit_transform(df)
+		df_scaled = scaler.fit_transform(df)
+		df_scaled = pd.DataFrame(df_scaled, columns=df.columns)
 
 		return scaler, df_scaled
 
@@ -79,7 +101,7 @@ class Cluster:
 
 		pca, df_pca, n_components = self.preprocess_pca(df_scaled, pca_variance_threshold=pca_variance_threshold)
 
-		df_pca = df_pca.iloc[:,n_components]
+		df_pca = df_pca.iloc[:,:n_components]
 
 		scaler_postpca, df_scaled_pca_scaled = self.preprocess_normalize(df_pca)
 
@@ -157,7 +179,7 @@ class Cluster:
 
 		self.data_for_kmeans = df_postpca_scaled
 
-		self.models_dict, self.inertia_dict = self.find_nclusters(self, self.data_for_kmeans, self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize):
+		self.models_dict, self.inertia_dict = self.find_nclusters(self, self.data_for_kmeans, self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize)
 
 		self.n_clusters_optimal = self.find_elbow(self.inertia_dict)
 
@@ -169,3 +191,26 @@ class Cluster:
 		self.save_model(df_cluster_dict['pca'], 'pca')
 
 		self.save_model(self.kmeans_optimal, "kmeans_optimal")
+
+	def future_pipeline(self):
+		'''Might move to pipelines in the future
+		All intermediate models need to have transform implemented
+		Final model needs to have predict implemented
+		'''
+		prepca_scaler = StandardScaler()
+		pca = PCA()
+		postpca_scaler = StandardScaler()
+		cluster = KMeans()
+		
+		p = Pipeline([('prepca_scaler', prepca_scaler), 
+					  ('pca', pca), 
+					  ('postpca_scaler', postpca_scaler),
+					  ('cluster', kmeans)])
+
+
+def diff(x):
+	xdiff = []
+	for i in range(1, len(x)):
+		xdiff.append(x[i]-x[i-1])
+
+	return xdiff
