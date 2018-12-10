@@ -22,17 +22,6 @@ class Inference(train.Cluster):
 		self.postpca_scaler = self.load_model(postpca_scaler_filename)
 		self.kmeans_optimal = self.load_model(cluster_filename)
 
-	def get_pca_ncomponents(self, pca, pca_variance_threshold):
-		variance_cumsum = np.cumsum(pca.explained_variance_ratio_)
-
-		gt_threshold = variance_cumsum[variance_cumsum > pca_variance_threshold]
-		if len(gt_threshold)==0:
-			n_components = len(pca.explained_variance_ratio_)
-		else:
-			n_components = np.where(variance_cumsum==gt_threshold[0])[0][0]
-
-		return n_components
-
 	def preprocess_prepare_for_clustering(self):
 		df_prepca_scaled = self.prepca_scaler.transform(self.data_preprocess)		
 		
