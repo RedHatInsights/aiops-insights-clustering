@@ -28,7 +28,8 @@ class Cluster:
 	def preprocess(self, df, categorical_cols=None, drop_cols=None):
 		df = self.preprocess_dropcols(df, drop_cols=drop_cols)
 		df = self.preprocess_onehot(df, categorical_cols=categorical_cols)
-
+		df = self.preprocess_fillnulls(df)
+		
 		return df
 
 	def preprocess_onehot(self, df, categorical_cols=None):
@@ -59,15 +60,15 @@ class Cluster:
 			return df.drop(drop_cols, axis=1).copy()
 
 		#very rules-data specific below
-		r_cols = [col for col in df_cluster.columns if col.find('r_')==0]
-		c_cols = [col for col in df_cluster.columns if col.find('c_')==0]
-		i_cols = [col for col in df_cluster.columns if col.find('i_')==0]
+		r_cols = [col for col in df.columns if col.find('r_')==0]
+		c_cols = [col for col in df.columns if col.find('c_')==0]
+		i_cols = [col for col in df.columns if col.find('i_')==0]
 
 		assert len(r_cols)+len(c_cols)+len(i_cols)>0, "Input data does not contain columns starting with r_*, c_* and i_*"
 
 		return df[r_cols].copy()
 
-	def preprocess_dropnulls(self, df):
+	def preprocess_fillnulls(self, df):
 		'''Make more sophisticated
 		'''
 
@@ -83,7 +84,7 @@ class Cluster:
 
 		gt_threshold = variance_cumsum[variance_cumsum > pca_variance_threshold]
 		if len(gt_threshold)==0:
-			n_components = df.shape[1]
+			n_components = len(pca.explained_variance_ratio_)
 		else:
 			n_components = np.where(variance_cumsum==gt_threshold[0])[0][0]
 
@@ -100,6 +101,7 @@ class Cluster:
 		scaler, df_scaled = self.preprocess_normalize(df)
 
 		pca, df_pca, n_components = self.preprocess_pca(df_scaled, pca_variance_threshold=pca_variance_threshold)
+		pca.n_components = n_components
 
 		df_pca = df_pca.iloc[:,:n_components]
 
@@ -127,7 +129,7 @@ class Cluster:
 	    return models_dict, inertia_dict
 
 	def find_elbow(self, inertia_dict):
-		pass
+		return 5
 
 	def train_cluster(self, df, n_clusters):
 		model = KMeans(n_clusters=n_clusters)
@@ -140,7 +142,7 @@ class Cluster:
 		pickle.dump(model, open(filename, 'wb'))
 
 	def load_model(self, filename):
-		return pickle.load(open(filename))	
+		return pickle.load(open(filename, 'rb'))	
 
 	def interpret(self):
 		if not self.kmeans_optimal:
@@ -175,9 +177,7 @@ class Cluster:
 		df_cluster_dict = self.preprocess_prepare_for_clustering(self, self.data_preprocess, pca_variance_threshold=0.99)		
 
 		#df for clustering
-		df_postpca_scaled = df_cluster_dict['df_postpca_scaled']
-
-		self.data_for_kmeans = df_postpca_scaled
+		self.data_for_kmeans = df_cluster_dict['df_postpca_scaled']
 
 		self.models_dict, self.inertia_dict = self.find_nclusters(self, self.data_for_kmeans, self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize)
 
@@ -186,11 +186,11 @@ class Cluster:
 		self.kmeans_optimal = self.train_cluster(self.data_for_kmeans, self.n_clusters_optimal)
 
 		#replace by ceph store
-		self.save_model(df_cluster_dict['prepca_scaler'], 'prepca_scaler')
-		self.save_model(df_cluster_dict['postpca_scaler'], 'postpca_scaler')
-		self.save_model(df_cluster_dict['pca'], 'pca')
+		self.save_model(df_cluster_dict['prepca_scaler'], 'prepca_scaler.pkl')
+		self.save_model(df_cluster_dict['postpca_scaler'], 'postpca_scaler.pkl')
+		self.save_model(df_cluster_dict['pca'], 'pca.pkl')
 
-		self.save_model(self.kmeans_optimal, "kmeans_optimal")
+		self.save_model(self.kmeans_optimal, "kmeans_optimal.pkl")
 
 	def future_pipeline(self):
 		'''Might move to pipelines in the future
@@ -214,3 +214,28 @@ def diff(x):
 		xdiff.append(x[i]-x[i-1])
 
 	return xdiff
+
+def run():
+	'''
+	Just for random testing
+	'''
+	cl = train.Cluster(df)
+	cl.data_preprocess = cl.preprocess(cl.data, categorical_cols=categorical_cols, drop_cols=drop_cols)
+	categorical_cols = ['Sex', 'Embarked']
+	drop_cols = ['PassengerId', 'Name', 'Ticket', 'Cabin']
+
+	cl.data_preprocess = cl.preprocess(cl.data, categorical_cols=categorical_cols, drop_cols=drop_cols)
+	cl.data_preprocess = cl.preprocess_dropnulls(cl.data_preprocess)
+	df_cluster_dict = cl.preprocess_prepare_for_clustering(cl.data_preprocess)
+	df_postpca_scaled = df_cluster_dict['df_postpca_scaled']
+	cl.data_for_kmeans = df_postpca_scaled
+	cl.models_dict, cl.inertia_dict = cl.find_nclusters(cl.data_for_kmeans, 2, 20, 1)
+	cl.n_clusters_optimal = 5
+	cl.kmeans_optimal = cl.train_cluster(cl.data_for_kmeans, cl.n_clusters_optimal)
+
+	cl.save_model(df_cluster_dict['prepca_scaler'], 'prepca_scaler.pkl')
+	cl.save_model(df_cluster_dict['postpca_scaler'], 'postpca_scaler.pkl')
+	cl.save_model(df_cluster_dict['pca'], 'pca.pkl')
+	cl.save_model(cl.kmeans_optimal, 'kmeans.pkl')
+
+	inf.predict(df, 'prepca_scaler.pkl', 'pca.pkl', 'postpca_scaler.pkl', 'kmeans.pkl')
