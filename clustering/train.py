@@ -59,19 +59,9 @@ class Cluster:
 		if drop_cols:
 			return df.drop(drop_cols, axis=1).copy()
 
-		#very rules-data specific below
-		r_cols = [col for col in df.columns if col.find('r_')==0]
-		c_cols = [col for col in df.columns if col.find('c_')==0]
-		i_cols = [col for col in df.columns if col.find('i_')==0]
-
-		assert len(r_cols)+len(c_cols)+len(i_cols)>0, "Input data does not contain columns starting with r_*, c_* and i_*"
-
-		return df[r_cols].copy()
-
 	def preprocess_fillnulls(self, df):
 		'''Make more sophisticated
 		'''
-
 		return df.fillna(0)
 
 	def preprocess_pca(self, df, pca_variance_threshold=0.99):
