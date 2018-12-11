@@ -14,7 +14,9 @@ class Inference(train.Cluster):
 	def __init__(self, pd_rules, categorical_cols=None, drop_cols=None):
 		super().__init__(pd_rules)
 
-		self.data_preprocess = self.preprocess(pd_rules, categorical_cols=categorical_cols, drop_cols=drop_cols)
+		self.data = pd_rules
+
+		self.data_preprocess = self.preprocess(self.data, categorical_cols=categorical_cols, drop_cols=drop_cols)
 
 	def load_models(self, prepca_scaler_filename, pca_filename, postpca_scaler_filename, cluster_filename):
 		self.prepca_scaler = self.load_model(prepca_scaler_filename)
@@ -37,4 +39,6 @@ class Inference(train.Cluster):
 		'''
 		cl = self.kmeans_optimal.predict(self.data_for_kmeans)
 
-		return cl
+		cl_dict = dict(zip(self.data.index, cl))
+		
+		return cl_dict
