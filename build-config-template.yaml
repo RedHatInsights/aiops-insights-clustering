@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
   name: systems-clustering-bc-is
@@ -8,10 +8,10 @@ parameters:
   name: APPLICATION_NAME
   required: true
 - name: GIT_URI
-  value: https://github.com/RedHatInsights/aicoe-insights-clustering.git
+  value: https://github.com/ManageIQ/aiops-insights-clustering.git
   required: true
 objects:
-- apiVersion: v1
+- apiVersion: build.openshift.io/v1
   kind: BuildConfig
   metadata:
     labels:
@@ -32,7 +32,7 @@ objects:
         from:
           kind: DockerImage
           name: 'docker.io/centos/python-36-centos7:latest'
-- apiversion: v1
+- apiversion: image.openshift.io/v1
   kind: ImageStream
   metadata:
     name: ${APPLICATION_NAME}

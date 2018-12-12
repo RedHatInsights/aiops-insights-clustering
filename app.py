@@ -1,4 +1,6 @@
 import logging
+logging.basicConfig(level=logging.INFO)
+
 import os
 
 from flask import Flask
@@ -7,7 +9,6 @@ import clustering
 import metric_tracking
 import storage
 
-logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 
 

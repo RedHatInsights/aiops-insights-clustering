@@ -21,6 +21,10 @@ parameters:
   required: true
 - name: CEPH_ENDPOINT
   required: true
+- name: CEPH_BUCKET
+  required: true
+- name: AIOPS_TRAINING_DATE
+  value: 2018-09-05
 
 objects:
 - apiVersion: batch/v1
@@ -40,6 +44,12 @@ objects:
         - name: ${JOB_NAME}
           image: ${CLUSTER_IMAGE}:latest
           imagePullPolicy: Always
+          resources:
+            request:
+              memory: 4G
+            limits:
+              memory: 16G
+              cpu: 1
           env:
           - name: CEPH_KEY
             value: "${CEPH_KEY}"
@@ -47,4 +57,8 @@ objects:
             value: "${CEPH_SECRET}"
           - name: CEPH_ENDPOINT
             value: "${CEPH_ENDPOINT}"
+          - name: CEPH_BUCKET
+            value: "${CEPH_BUCKET}"
+          - name: AIOPS_TRAINING_DATE
+            value: "${AIOPS_TRAINING_DATE}"
         restartPolicy: Never
