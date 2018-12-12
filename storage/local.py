@@ -26,7 +26,8 @@ def unprocessed():
         start += datetime.timedelta(days=1)
 
 
-def get_dataset(key):
+def get_dataset(date):
+    key = f"data/{date}/rule_data"
     return pq.ParquetDataset(key).read_pandas().to_pandas()
 
 

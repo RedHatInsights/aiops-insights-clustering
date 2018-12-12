@@ -7,7 +7,10 @@ from sklearn.preprocessing import StandardScaler
 
 
 class Cluster:
-    def __init__(self, pd_rules, n_clusters_low=2, n_clusters_high=50, n_clusters_stepsize=5):
+    def __init__(self, pd_rules,
+                 n_clusters_low=2, n_clusters_high=50, n_clusters_stepsize=5,
+                 categorical_cols=None,
+                 drop_cols=None):
         self.data = pd_rules
 
         self.data_for_kmeans = None  # zscore -> pca -> zscore
@@ -22,46 +25,71 @@ class Cluster:
         self.n_clusters_optimal = None
         self.kmeans_optimal = None
 
-    def preprocess(self, df, categorical_cols=None, drop_cols=None):
-        df = self.preprocess_dropcols(df, drop_cols=drop_cols)
-        df = self.preprocess_onehot(df, categorical_cols=categorical_cols)
-        df = self.preprocess_fillnulls(df)
+        self.categorical_cols = categorical_cols
+        self.drop_cols = drop_cols
 
-        return df
+    def train_the_cluster(self):
+        self.preprocess()
 
-    def preprocess_onehot(self, df, categorical_cols=None):
+        # Train - prepare for clustering (z-score -> PCA -> z-score)
+        df_cluster_dict = self.preprocess_prepare_for_clustering()
+        # df_cluster_dict contains 3 models (two scalers and 1 PCA) and 3 dataframes (after each step)
+
+        # scan n_clusters and find optimal point (In progress)
+        data_for_kmeans = df_cluster_dict['df_postpca_scaled']
+        models_dict, inertia_dict = self.find_nclusters(
+            data_for_kmeans,
+            self.n_clusters_low,
+            self.n_clusters_high,
+            self.n_clusters_stepsize
+        )
+        n_clusters_optimal = self.find_elbow(inertia_dict)  # hard-coded currently
+
+        kmeans_optimal = self.train_cluster(data_for_kmeans, n_clusters_optimal)
+
+        return {
+            "prepca_scaler": df_cluster_dict["prepca_scaler"],
+            "postpca_scaler": df_cluster_dict["postpca_scaler"],
+            "pca": df_cluster_dict["pca"],
+            "kmeans": kmeans_optimal
+        }
+
+    def preprocess(self):
+        self.preprocess_dropcols()
+        self.preprocess_onehot()
+        self.preprocess_fillnulls()
+
+    def preprocess_onehot(self):
         '''one-host encoding
         '''
 
-        if categorical_cols is None:  # if list of categorical cols not passed, one-hot encode everything
-            categorical_cols = df.columns
+        if self.categorical_cols is None:  # if list of categorical cols not passed, one-hot encode everything
+            categorical_cols = self.data.columns
             df_rest = pd.DataFrame()
         else:
-            df_rest = df.drop(categorical_cols, axis=1)  # non-categorical columns
+            df_rest = self.data.drop(self.categorical_cols, axis=1)  # non-categorical columns
 
         df_list = []
         for col in categorical_cols:
-            df_onehot = pd.get_dummies(df[col], prefix=col)
+            df_onehot = pd.get_dummies(self.data[col], prefix=col)
             df_list.append(df_onehot)
         df_onehot = pd.concat(df_list, axis=1)  # concat all one-hot encoded cols
 
         df_onehot = pd.concat([df_onehot, df_rest], axis=1)  # concat non-categorical cols
 
-        return df_onehot
+        self.data = df_onehot
 
-    def preprocess_dropcols(self, df, drop_cols=None):
+    def preprocess_dropcols(self):
         '''Only keep rules columns
         Makes assumptions about data columns
         '''
-        if drop_cols:
-            return df.drop(drop_cols, axis=1).copy()
-        else:
-            return df
+        if self.drop_cols:
+            self.data.drop(self.drop_cols, axis=1, inplace=True)
 
-    def preprocess_fillnulls(self, df):
+    def preprocess_fillnulls(self):
         '''Make more sophisticated
         '''
-        return df.fillna(0)
+        self.data.fillna(0, inplace=True)
 
     def preprocess_pca(self, df, pca_variance_threshold=0.99):
         pca = PCA()
@@ -86,8 +114,8 @@ class Cluster:
 
         return scaler, df_scaled
 
-    def preprocess_prepare_for_clustering(self, df, pca_variance_threshold=0.99):
-        scaler, df_scaled = self.preprocess_normalize(df)
+    def preprocess_prepare_for_clustering(self, pca_variance_threshold=0.99):
+        scaler, df_scaled = self.preprocess_normalize(self.data)
 
         pca, df_pca, n_components = self.preprocess_pca(df_scaled, pca_variance_threshold=pca_variance_threshold)
         pca.n_components = n_components
