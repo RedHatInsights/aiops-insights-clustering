@@ -18,7 +18,7 @@ Then create the BuildConfig and ImageStream
 
      * With parameters:
         * APPLICATION_NAME=systems-clustering
-        * GIT_URI=https://github.com/RedHatInsights/aicoe-insights-clustering.git
+        * GIT_URI=https://github.com/ManageIQ/aiops-insights-clustering.git
 
 --> Creating resources ...
     buildconfig "systems-clustering" created
@@ -28,6 +28,14 @@ Then create the BuildConfig and ImageStream
     Run 'oc status' to view your app.
 ```
 
+## Development workflow
+
+Copy .env file and adjust variables
+
+```
+cp .env.example .env
+```
+
 Start a build
 
 ```
@@ -35,24 +43,17 @@ Start a build
 build "systems-clustering-1" started
 ```
 
+Or to push your local committed code
+
+```
+g add .
+make oc_build_head
+```
+
 And finally you can run a job that does the clustering
 
 ```
-❯ oc new-app --template systems-clustering-pod --param CEPH_KEY=I..................8 --param CEPH_SECRET=g......................................A --param CEPH_ENDPOINT=http://storage-.......................................com:8080/
---> Deploying template "mhild-test/systems-clustering-pod" to project mhild-test
-
-     * With parameters:
-        * JOB_NAME=systems-clustering-job-spah # generated
-        * LABEL_APP_NAME=systems-clustering
-        * CLUSTER_IMAGE=systems-clustering
-        * CEPH_KEY=I..................8
-        * CEPH_SECRET=g......................................A
-        * CEPH_ENDPOINT=http://storage-.......................................com:8080/
-
---> Creating resources ...
-    pod "systems-clustering-job-spah" created
---> Success
-    Run 'oc status' to view your app.
+make oc_cluster_train
 ```
 
 Look at the output of the job
