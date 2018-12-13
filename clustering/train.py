@@ -4,86 +4,91 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-
+import multiprocessing as mp
 
 class Cluster:
-    def __init__(self, pd_rules,
-                 n_clusters_low=2, n_clusters_high=50, n_clusters_stepsize=5,
-                 categorical_cols=None,
-                 drop_cols=None):
-        self.data = pd_rules
+    def __init__(self, pd_rules, index_cols=None,
+                 categorical_cols=None, drop_cols=None,
+                 n_clusters_low=2, n_clusters_high=50, n_clusters_stepsize=5, n_processes=None):
+
+        self.data = pd_rules.copy()
+        self.index_cols = index_cols
+
+        #preprocessing
+        self.categorical_cols = categorical_cols
+        self.drop_cols = drop_cols
+        self.preprocessed = False
 
         self.data_for_kmeans = None  # zscore -> pca -> zscore
 
+        #clustering scan
         self.n_clusters_low = n_clusters_low
         self.n_clusters_high = n_clusters_high
         self.n_clusters_stepsize = n_clusters_stepsize
+        self.n_processes = None
 
         self.models_dict = None
         self.inertia_dict = None
 
+        #clustering optimal
         self.n_clusters_optimal = None
         self.kmeans_optimal = None
 
-        self.categorical_cols = categorical_cols
-        self.drop_cols = drop_cols
 
     def train_the_cluster(self):
-        self.preprocess()
+        self.preprocess() #modify self.data
 
-        # Train - prepare for clustering (z-score -> PCA -> z-score)
-        df_cluster_dict = self.preprocess_prepare_for_clustering()
-        # df_cluster_dict contains 3 models (two scalers and 1 PCA) and 3 dataframes (after each step)
+        preprocess_dict = self.preprocess_prepare_for_clustering(pca_variance_threshold=0.99)
 
-        # scan n_clusters and find optimal point (In progress)
-        data_for_kmeans = df_cluster_dict['df_postpca_scaled']
-        models_dict, inertia_dict = self.find_nclusters(
-            data_for_kmeans,
-            self.n_clusters_low,
-            self.n_clusters_high,
-            self.n_clusters_stepsize
-        )
-        n_clusters_optimal = self.find_elbow(inertia_dict)  # hard-coded currently
+        if self.n_processes is None:
+            self.find_nclusters()
+        else:
+            self.find_nclusters_parallel()
 
-        kmeans_optimal = self.train_cluster(data_for_kmeans, n_clusters_optimal)
+        self.find_elbow()  # hard-coded currently
+        self.train_cluster()
 
         return {
-            "prepca_scaler": df_cluster_dict["prepca_scaler"],
-            "postpca_scaler": df_cluster_dict["postpca_scaler"],
-            "pca": df_cluster_dict["pca"],
-            "kmeans": kmeans_optimal
+            "prepca_scaler": preprocess_dict["prepca_scaler"],
+            "postpca_scaler": preprocess_dict["postpca_scaler"],
+            "pca": preprocess_dict["pca"],
+            "kmeans": self.kmeans_optimal
         }
 
+
     def preprocess(self):
-        self.preprocess_dropcols()
-        self.preprocess_onehot()
-        self.preprocess_fillnulls()
+        if not self.preprocessed: #so train_the_cluster can be called multiple times if necessary
+            self.preprocess_index()
+            self.preprocess_dropcols()
+            self.preprocess_onehot()
+            self.preprocess_fillnulls()
+        self.preprocessed = True
+
+    def preprocess_index(self):
+        if self.index_cols is not None:
+            self.data.set_index(self.index_cols, inplace=True)
 
     def preprocess_onehot(self):
         '''one-host encoding
         '''
-
-        if self.categorical_cols is None:  # if list of categorical cols not passed, one-hot encode everything
-            categorical_cols = self.data.columns
-            df_rest = pd.DataFrame()
-        else:
+        if self.categorical_cols is not None:
             df_rest = self.data.drop(self.categorical_cols, axis=1)  # non-categorical columns
 
-        df_list = []
-        for col in categorical_cols:
-            df_onehot = pd.get_dummies(self.data[col], prefix=col)
-            df_list.append(df_onehot)
-        df_onehot = pd.concat(df_list, axis=1)  # concat all one-hot encoded cols
+            df_list = []
+            for col in self.categorical_cols:
+                df_onehot = pd.get_dummies(self.data[col], prefix=col)
+                df_list.append(df_onehot)
+            df_onehot = pd.concat(df_list, axis=1)  # concat all one-hot encoded cols
 
-        df_onehot = pd.concat([df_onehot, df_rest], axis=1)  # concat non-categorical cols
+            df_onehot = pd.concat([df_onehot, df_rest], axis=1)  # concat non-categorical cols
 
-        self.data = df_onehot
+            self.data = df_onehot
 
     def preprocess_dropcols(self):
         '''Only keep rules columns
         Makes assumptions about data columns
         '''
-        if self.drop_cols:
+        if self.drop_cols is not None:
             self.data.drop(self.drop_cols, axis=1, inplace=True)
 
     def preprocess_fillnulls(self):
@@ -94,18 +99,23 @@ class Cluster:
     def preprocess_pca(self, df, pca_variance_threshold=0.99):
         pca = PCA()
 
-        df_pca = pca.fit_transform(df)
-        df_pca = pd.DataFrame(df_pca)
+        df_pca = pd.DataFrame(pca.fit_transform(df))
+        n_components = self.find_pca_ncomponents(pca, pca_variance_threshold)
+        df_pca = df_pca.iloc[:, :n_components]
+        pca.n_components = n_components
 
-        variance_cumsum = np.cumsum(pca.explained_variance_ratio_)
+        return pca, df_pca
+
+    def find_pca_ncomponents(self, pca_model, pca_variance_threshold):
+        variance_cumsum = np.cumsum(pca_model.explained_variance_ratio_)
 
         gt_threshold = variance_cumsum[variance_cumsum > pca_variance_threshold]
         if len(gt_threshold) == 0:
-            n_components = len(pca.explained_variance_ratio_)
+            n_components = len(pca_model.explained_variance_ratio_)
         else:
             n_components = np.where(variance_cumsum == gt_threshold[0])[0][0]
 
-        return pca, df_pca, n_components
+        return n_components
 
     def preprocess_normalize(self, df):
         scaler = StandardScaler()
@@ -115,48 +125,80 @@ class Cluster:
         return scaler, df_scaled
 
     def preprocess_prepare_for_clustering(self, pca_variance_threshold=0.99):
-        scaler, df_scaled = self.preprocess_normalize(self.data)
+        scaler_prepca, df_scaled = self.preprocess_normalize(self.data)
 
-        pca, df_pca, n_components = self.preprocess_pca(df_scaled, pca_variance_threshold=pca_variance_threshold)
-        pca.n_components = n_components
+        pca, df_scaled_pca = self.preprocess_pca(df_scaled, pca_variance_threshold=pca_variance_threshold)
 
-        df_pca = df_pca.iloc[:, :n_components]
+        scaler_postpca, df_scaled_pca_scaled = self.preprocess_normalize(df_scaled_pca)
 
-        scaler_postpca, df_scaled_pca_scaled = self.preprocess_normalize(df_pca)
+        self.data_for_kmeans = df_scaled_pca_scaled
 
-        return {'prepca_scaler': scaler,
+        return {'prepca_scaler': scaler_prepca,
                 'pca': pca,
                 'postpca_scaler': scaler_postpca,
                 'df_prepca_scaled': df_scaled,
-                'df_pca': df_pca,
+                'df_pca': df_scaled_pca,
                 'df_postpca_scaled': df_scaled_pca_scaled
                 }
 
-    def find_nclusters(self, df, n_clusters_low, n_clusters_high, n_clusters_stepsize):
-        inertia_dict = {}
-        models_dict = {}
+    def find_nclusters(self):
+        if self.data_for_kmeans is None:
+            raise AttributeError("Please call preprocess_prepare_for_clustering to prepare data for clustering.")
 
-        for ncl in range(n_clusters_low, n_clusters_high, n_clusters_stepsize):
+        self.inertia_dict, self.models_dict = {}, {}
+        for ncl in range(self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize):
             kmeans = KMeans(n_clusters=ncl)
-            kmeans.fit(df)
+            kmeans.fit(self.data_for_kmeans)
 
-            inertia_dict[ncl] = kmeans.inertia_
-            models_dict[ncl] = kmeans
+            self.inertia_dict[ncl] = kmeans.inertia_
+            self.models_dict[ncl] = kmeans
 
-        return models_dict, inertia_dict
+    def find_nclusters_parallel(self):
+        manager = mp.Manager()
+        models_shared_dict = manager.dict()
+        inertia_shared_dict = manager.dict()
 
-    def find_elbow(self, inertia_dict):
-        return 5
+        proc_list = []
+        counter = 0
+        def run(data, ncl):
+            kmeans = KMeans(n_clusters=ncl)
+            kmeans.fit(data)
 
-    def train_cluster(self, df, n_clusters):
-        model = KMeans(n_clusters=n_clusters)
+            inertia_shared_dict[ncl] = kmeans.inertia_
+            models_shared_dict[ncl] = kmeans
 
-        model.fit(df)
+        for ncl in range(self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize):
+            proc = mp.Process(target=run, args=(self.data, ncl,))
+            proc.start()
+            proc_list.append(proc)
+            counter += 1
 
-        return model
+            if counter % self.n_processes == 0:
+                [p.join() for p in  proc_list]
+                proc_list = []
+
+        [p.join() for p in proc_list]
+
+        self.inertia_dict = dict(inertia_shared_dict)
+        self.models_dict = dict(models_shared_dict)
+    
+    def find_elbow(self):
+        if self.inertia_dict is None:
+            raise AttributeError("Please run find_nclusters to populated inertia_dict.")
+        
+        self.n_clusters_optimal = 5
+
+    def train_cluster(self):
+        if self.data_for_kmeans is None:
+            raise AttributeError("Please call preprocess_prepare_for_clustering to prepare data for clustering.")
+
+        if not self.n_clusters_optimal:
+            raise AttributeError("Please run find_n_clusters and find_elbow to find optimal n_clusters.")
+
+        self.kmeans_optimal = KMeans(n_clusters=self.n_clusters_optimal).fit(self.data_for_kmeans)
 
     def interpret(self):
-        if not self.kmeans_optimal:
+        if self.kmeans_optimal is None:
             raise AttributeError("Attribute kmeans_optimal not found. Please train model first.")
 
         return None
@@ -180,30 +222,6 @@ class Cluster:
                 print(f"Node hit: {features[node]} {col_names[node]} {100*thresholds[node]} {data[example_row][node]}")
         '''
 
-    def train(self):
-        # 1-hot and drop columns
-        self.data_preprocess = self.preprocess(self.data)
-
-        # z-score -> pca -> z-score
-        df_cluster_dict = self.preprocess_prepare_for_clustering(self, self.data_preprocess,
-                                                                 pca_variance_threshold=0.99)
-
-        # df for clustering
-        self.data_for_kmeans = df_cluster_dict['df_postpca_scaled']
-
-        self.models_dict, self.inertia_dict = self.find_nclusters(self, self.data_for_kmeans, self.n_clusters_low,
-                                                                  self.n_clusters_high, self.n_clusters_stepsize)
-
-        self.n_clusters_optimal = self.find_elbow(self.inertia_dict)
-
-        self.kmeans_optimal = self.train_cluster(self.data_for_kmeans, self.n_clusters_optimal)
-
-        # replace by ceph store
-        self.save_model(df_cluster_dict['prepca_scaler'], 'prepca_scaler.pkl')
-        self.save_model(df_cluster_dict['postpca_scaler'], 'postpca_scaler.pkl')
-        self.save_model(df_cluster_dict['pca'], 'pca.pkl')
-
-        self.save_model(self.kmeans_optimal, "kmeans_optimal.pkl")
 
     def future_pipeline(self):
         '''Might move to pipelines in the future
@@ -219,37 +237,3 @@ class Cluster:
                       ('pca', pca),
                       ('postpca_scaler', postpca_scaler),
                       ('cluster', kmeans)])
-
-
-def diff(x):
-    xdiff = []
-    for i in range(1, len(x)):
-        xdiff.append(x[i] - x[i - 1])
-
-    return xdiff
-
-
-def run():
-    '''
-    Just for random testing
-    '''
-    cl = train.Cluster(df)
-    cl.data_preprocess = cl.preprocess(cl.data, categorical_cols=categorical_cols, drop_cols=drop_cols)
-    categorical_cols = ['Sex', 'Embarked']
-    drop_cols = ['PassengerId', 'Name', 'Ticket', 'Cabin']
-
-    cl.data_preprocess = cl.preprocess(cl.data, categorical_cols=categorical_cols, drop_cols=drop_cols)
-    cl.data_preprocess = cl.preprocess_dropnulls(cl.data_preprocess)
-    df_cluster_dict = cl.preprocess_prepare_for_clustering(cl.data_preprocess)
-    df_postpca_scaled = df_cluster_dict['df_postpca_scaled']
-    cl.data_for_kmeans = df_postpca_scaled
-    cl.models_dict, cl.inertia_dict = cl.find_nclusters(cl.data_for_kmeans, 2, 20, 1)
-    cl.n_clusters_optimal = 5
-    cl.kmeans_optimal = cl.train_cluster(cl.data_for_kmeans, cl.n_clusters_optimal)
-
-    cl.save_model(df_cluster_dict['prepca_scaler'], 'prepca_scaler.pkl')
-    cl.save_model(df_cluster_dict['postpca_scaler'], 'postpca_scaler.pkl')
-    cl.save_model(df_cluster_dict['pca'], 'pca.pkl')
-    cl.save_model(cl.kmeans_optimal, 'kmeans.pkl')
-
-    inf.predict(df, 'prepca_scaler.pkl', 'pca.pkl', 'postpca_scaler.pkl', 'kmeans.pkl')
