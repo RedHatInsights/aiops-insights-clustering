@@ -1,1 +1,3 @@
-from .train import Cluster
+from . import train
+from . import inference
+from . import config
