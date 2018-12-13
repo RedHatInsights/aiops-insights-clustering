@@ -72,6 +72,12 @@ app.py:50: FutureWarning: Method .as_matrix will be removed in a future version.
 Name: cluster, Length: 40162, dtype: int32
 ```
 
+## Tests
+
+```
+make test
+```
+
 ## Local build
 
 If you would like to deploy the clustering service locally, you can build the container using [S2I](https://github.com/openshift/source-to-image)
