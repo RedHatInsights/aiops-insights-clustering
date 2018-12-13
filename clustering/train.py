@@ -9,7 +9,7 @@ import multiprocessing as mp
 class Cluster:
     def __init__(self, pd_rules, index_cols=None,
                  categorical_cols=None, drop_cols=None,
-                 n_clusters_low=2, n_clusters_high=50, n_clusters_stepsize=5):
+                 n_clusters_low=2, n_clusters_high=50, n_clusters_stepsize=5, n_processes=None):
 
         self.data = pd_rules.copy()
         self.index_cols = index_cols
@@ -17,6 +17,7 @@ class Cluster:
         #preprocessing
         self.categorical_cols = categorical_cols
         self.drop_cols = drop_cols
+        self.preprocessed = False
 
         self.data_for_kmeans = None  # zscore -> pca -> zscore
 
@@ -24,6 +25,7 @@ class Cluster:
         self.n_clusters_low = n_clusters_low
         self.n_clusters_high = n_clusters_high
         self.n_clusters_stepsize = n_clusters_stepsize
+        self.n_processes = None
 
         self.models_dict = None
         self.inertia_dict = None
@@ -38,7 +40,11 @@ class Cluster:
 
         preprocess_dict = self.preprocess_prepare_for_clustering(pca_variance_threshold=0.99)
 
-        self.find_nclusters()
+        if self.n_processes is None:
+            self.find_nclusters()
+        else:
+            self.find_nclusters_parallel()
+
         self.find_elbow()  # hard-coded currently
         self.train_cluster()
 
@@ -51,10 +57,12 @@ class Cluster:
 
 
     def preprocess(self):
-        self.preprocess_index()
-        self.preprocess_dropcols()
-        self.preprocess_onehot()
-        self.preprocess_fillnulls()
+        if not self.preprocessed: #so train_the_cluster can be called multiple times if necessary
+            self.preprocess_index()
+            self.preprocess_dropcols()
+            self.preprocess_onehot()
+            self.preprocess_fillnulls()
+        self.preprocessed = True
 
     def preprocess_index(self):
         if self.index_cols is not None:
@@ -145,6 +153,35 @@ class Cluster:
             self.inertia_dict[ncl] = kmeans.inertia_
             self.models_dict[ncl] = kmeans
 
+    def find_nclusters_parallel(self):
+        manager = mp.Manager()
+        models_shared_dict = manager.dict()
+        inertia_shared_dict = manager.dict()
+
+        proc_list = []
+        counter = 0
+        def run(data, ncl):
+            kmeans = KMeans(n_clusters=ncl)
+            kmeans.fit(data)
+
+            inertia_shared_dict[ncl] = kmeans.inertia_
+            models_shared_dict[ncl] = kmeans
+
+        for ncl in range(self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize):
+            proc = mp.Process(target=run, args=(self.data, ncl,))
+            proc.start()
+            proc_list.append(proc)
+            counter += 1
+
+            if counter % self.n_processes == 0:
+                [p.join() for p in  proc_list]
+                proc_list = []
+
+        [p.join() for p in proc_list]
+
+        self.inertia_dict = dict(inertia_shared_dict)
+        self.models_dict = dict(models_shared_dict)
+    
     def find_elbow(self):
         if self.inertia_dict is None:
             raise AttributeError("Please run find_nclusters to populated inertia_dict.")
