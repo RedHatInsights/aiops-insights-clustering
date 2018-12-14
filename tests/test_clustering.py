@@ -4,7 +4,7 @@ sys.path.append('../')
 
 import storage
 import clustering
-import clustering.config as config
+import config
 
 try:
     train_flag = int(sys.argv[1])
@@ -27,6 +27,7 @@ n_clusters_low = config.KMeansSettings.n_clusters_low
 n_clusters_high = config.KMeansSettings.n_clusters_high
 n_clusters_stepsize = config.KMeansSettings.n_clusters_stepsize
 n_processes = config.KMeansSettings.n_processes
+
 
 if train_flag:
     print("Training...")
