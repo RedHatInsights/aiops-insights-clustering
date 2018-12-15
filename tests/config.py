@@ -5,7 +5,7 @@ class PreprocessSettings:
 
 class KMeansSettings:
     n_clusters_low = 2
-    n_clusters_high = 10
+    n_clusters_high = 50
     n_clusters_stepsize = 1
     n_processes = None
 
