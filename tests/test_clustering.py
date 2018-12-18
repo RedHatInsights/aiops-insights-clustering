@@ -1,6 +1,6 @@
 import pandas as pd
 import clustering
-import config
+import tests.config as config
 
 data = pd.read_csv('tests/test_dataset/train.csv')
 model = {}
