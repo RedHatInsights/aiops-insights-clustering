@@ -14,3 +14,6 @@ oc_cluster_train:
 		--param CEPH_SECRET=${CEPH_SECRET} \
 		--param CEPH_ENDPOINT=${CEPH_ENDPOINT} \
 		--param CEPH_BUCKET=${CEPH_BUCKET}
+
+test:
+	pipenv run pytest
