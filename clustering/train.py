@@ -4,6 +4,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
 import multiprocessing as mp
 
 class Cluster:
@@ -183,10 +184,40 @@ class Cluster:
         self.models_dict = dict(models_shared_dict)
     
     def find_elbow(self):
+        '''check for off-by-one errors
+        '''
         if self.inertia_dict is None:
             raise AttributeError("Please run find_nclusters to populated inertia_dict.")
         
-        self.n_clusters_optimal = 5
+        keys = np.sort(list(self.inertia_dict.keys()))
+        values = np.array([self.inertia_dict[k] for k in keys])
+
+        N = len(keys)
+
+        thresholds = np.arange(2, N-1) #indices to slice at
+
+        threshold_cuts, score_means = [], []
+
+        for t in thresholds:
+            model1, model2 = LinearRegression(), LinearRegression()
+
+            domain1 = np.arange(t)
+            domain2 = np.arange(t, N)
+
+            model1.fit(domain1.reshape(-1,1), values[domain1])
+            model2.fit(domain2.reshape(-1,1), values[domain2])
+
+            score1 = model1.score(domain1.reshape(-1,1), values[domain1])
+            score2 = model2.score(domain2.reshape(-1,1), values[domain2])
+
+            score = (score1+score2)/2.0
+            
+            threshold_cuts.append(t)
+            score_means.append(score)
+
+        self.n_clusters_optimal = threshold_cuts[np.argmax(score_means)]
+
+        return threshold_cuts, score_means
 
     def train_cluster(self):
         if self.data_for_kmeans is None:

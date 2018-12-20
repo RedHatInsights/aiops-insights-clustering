@@ -1,6 +1,6 @@
 import pandas as pd
 import clustering
-import clustering.config as config
+import tests.config as config
 
 data = pd.read_csv('tests/test_dataset/train.csv')
 model = {}
@@ -36,4 +36,4 @@ def test_inference():
                               models_dict=model)
 
     cl_dict = inf.predict()
-    assert len(cl_dict) == 891
+    assert len(cl_dict) == data.shape[0]
