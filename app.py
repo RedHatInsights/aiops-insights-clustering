@@ -2,15 +2,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 import os
-
-from flask import Flask
-
 import clustering
 import metric_tracking
 import storage
-
-app = Flask(__name__)
-
 
 def train(date):
     try:
@@ -42,11 +36,6 @@ if __name__ == "__main__":
         exit(0)
 
     if "MLFLOW_TRACKING_URI" in os.environ:
-        logging.info("syncing before metric tracking")
-        # sync.sync()
         logging.info("do tracking")
         metric_tracking.do_tracking()
         exit(0)
-
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
