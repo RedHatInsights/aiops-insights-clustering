@@ -6,6 +6,8 @@ name = "pypi"
 [dev-packages]
 ipython = "*"
 pytest = "*"
+pylama = "*"
+pylama-pylint = "*"
 
 [packages]
 boto3 = "==1.9.64"
