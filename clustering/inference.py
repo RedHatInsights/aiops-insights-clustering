@@ -49,8 +49,13 @@ class Inference(Cluster):
 
         cl = self.kmeans_optimal.predict(self.data_for_kmeans)
 
-        cl_dict = dict(zip(self.data.index, cl))
-        
+        # Conversions required to support JSON serialization:
+        # Index just by one level of index
+        # Convert using numpy.narray.tolist(), to ensure Python native types
+        index = self.data.index.get_level_values(0).tolist()
+        cl = cl.tolist()
+        cl_dict = dict(zip(index, cl))
+
         return cl_dict
 
     def predict_proba(self, type='inverse'):

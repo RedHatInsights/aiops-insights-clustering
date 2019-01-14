@@ -1,6 +1,4 @@
 import logging
-import os
-from queue import Queue
 from threading import Thread, current_thread
 
 import requests
@@ -10,11 +8,8 @@ import clustering
 # Take the example config for now
 import tests.config as config
 
-from pprint import pprint
-
 
 logger = logging.getLogger()
-
 MAX_RETRIES = 3
 
 
@@ -118,7 +113,7 @@ def prediction_worker(job, next_service):
         )
         # Pass to the next service
         try:
-            resp = _retryable('post', f'http://{next_service}', json=output)
+            _retryable('post', f'http://{next_service}', json=output)
         except requests.HTTPError as exception:
             logger.error(
                 '%s: Failed to pass data for "%s": %s',
