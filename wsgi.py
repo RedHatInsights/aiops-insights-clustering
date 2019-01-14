@@ -1,35 +1,51 @@
 import logging
-logging.basicConfig(level=logging.INFO)
-
 import os
 
-from flask import Flask, jsonify, request
 import requests
+from flask import Flask, jsonify, request
+from flask.logging import default_handler
+from flask.exception import BadRequest
+
+from workers import QUEUE, init_workers
+
 
 application = Flask(__name__)
+
+# Sync logging between Flask and Gunicorn
+gunicorn_logger = logging.getLogger('gunicorn.error')
+application.logger.handlers = gunicorn_logger.handlers
+application.logger.setLevel(gunicorn_logger.level)
+
+# Check presence of next endpoint
+assert os.environ.get('NEXT_MICROSERVICE_HOST')
+
+@application.before_first_request
+def startup():
+    count = os.environ.get('WORKERS_COUNT', 1)
+    application.logger.info("Starting workers (%d)", count)
+    init_workers(count)
+
 
 @application.route("/", methods=['POST', 'PUT'])
 def index():
     """Pass data to next endpoint."""
-    data = request.get_json(force=True)
+    try:
+        input_data = request.get_json(force=True, cache=False)
+    except BadRequest:
+        return jsonify(
+            status='ERROR',
+            message="Unable to parse input data JSON."
+        ), 400
 
-    application.logger.info(f'Received data {data}')
-
-    # Identify itself
-    data['ai_service'] = 'ai_clustering'
-
-    # TODO: run inference for input data
-    data['data'] = []
-
-    host = os.environ.get('NEXT_MICROSERVICE_HOST')
-    requests.post(f'http://{host}', json=data)
-
-    application.logger.info('Done: %s', str(data))
+    application.logger.info(f'Received a Job...')
+    QUEUE.put(input_data)
+    application.logger.info('Queued Job ID: %s', data.get('id'))
 
     return jsonify(
         status='OK',
-        message='Data processed by awesome and totally useful AI service'
+        message='Clustering initiated.'
     )
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
