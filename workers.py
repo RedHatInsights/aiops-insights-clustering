@@ -79,26 +79,40 @@ def _inference(model: dict, data: pd.DataFrame) -> dict:
     return inf.predict()
 
 
-def prediction_worker(job, next_service):
+def prediction_worker(job: dict, next_service: str) -> Thread:
     def worker() -> None:
         thread = current_thread()
         logger.debug('%s: Worker started', thread.name)
 
-        batch_id, batch_data = job['id'], job['data']
-        logger.info('%s: Job ID %s: Started...', thread.name, batch_id)
+        try:
+            batch_id, batch_data = job['id'], job['data']
+        except KeyError:
+            logger.error("%s: Invalid Job data, terminated.", thread.name)
+            return
 
-        # Train model and run inference
-        logger.info(
-            '%s: Job ID %s: Parsing input data...', thread.name, batch_id
-        )
-        data = pd.DataFrame.from_dict(batch_data)
+        logger.info('%s: Job ID %s: Started...', thread.name, batch_id)
+        try:
+            data = pd.DataFrame.from_dict(batch_data)
+        except ValueError:
+            logger.error(
+                "%s: Job ID %s: Unable to parse data, terminated.",
+                thread.name, batch_id
+            )
+            return
 
         logger.info(
             '%s: Job ID %s: Training model and predicting clusters...',
             thread.name, batch_id
         )
-        model = _train(data)
-        clusters = _inference(model, data)
+        try:
+            model = _train(data)
+            clusters = _inference(model, data)
+        except KeyError as e:
+            logger.error(
+                "%s: Job ID %s: Preprocessing failed: Missing fields %s",
+                thread.name, batch_id, e
+            )
+            return
 
         # Build response JSON
         output = {
@@ -124,3 +138,5 @@ def prediction_worker(job, next_service):
 
     thread = Thread(target=worker)
     thread.start()
+
+    return thread

@@ -1,9 +1,11 @@
 import logging
 import os
+import warnings
 
 from flask import Flask, jsonify, request
 from flask.logging import default_handler
 from werkzeug.exceptions import BadRequest
+from sklearn.exceptions import DataConversionWarning
 
 from workers import prediction_worker
 
@@ -21,6 +23,9 @@ APP = create_application()
 ROOT_LOGGER = logging.getLogger()
 ROOT_LOGGER.setLevel(APP.logger.level)
 ROOT_LOGGER.addHandler(default_handler)
+
+# Disable sklearn implicit data conversion warnings to clean-up server logs
+warnings.filterwarnings(action='ignore', category=DataConversionWarning)
 
 
 @APP.route("/", methods=['POST', 'PUT'])
