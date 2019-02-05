@@ -41,7 +41,13 @@ def index():
             message="Unable to parse input data JSON."
         ), 400
 
-    prediction_worker(input_data, next_service)
+    b64_identity = request.headers.get('x-rh-identity')
+
+    prediction_worker(
+        input_data,
+        next_service,
+        b64_identity
+    )
     APP.logger.info('Job started')
 
     return jsonify(
