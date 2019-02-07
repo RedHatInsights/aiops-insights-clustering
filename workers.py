@@ -79,7 +79,11 @@ def _inference(model: dict, data: pd.DataFrame) -> dict:
     return inf.predict()
 
 
-def prediction_worker(job: dict, next_service: str) -> Thread:
+def prediction_worker(
+        job: dict,
+        next_service: str,
+        b64_identity: str = None
+) -> Thread:
     def worker() -> None:
         thread = current_thread()
         logger.debug('%s: Worker started', thread.name)
@@ -127,7 +131,12 @@ def prediction_worker(job: dict, next_service: str) -> Thread:
         )
         # Pass to the next service
         try:
-            _retryable('post', f'http://{next_service}', json=output)
+            _retryable(
+                'post',
+                f'http://{next_service}',
+                json=output,
+                headers={"x-rh-identity": b64_identity}
+            )
         except requests.HTTPError as exception:
             logger.error(
                 '%s: Failed to pass data for "%s": %s',
