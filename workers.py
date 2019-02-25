@@ -1,5 +1,6 @@
 import logging
 from threading import Thread, current_thread
+from io import BytesIO
 
 import requests
 import pandas as pd
@@ -79,34 +80,31 @@ def _inference(model: dict, data: pd.DataFrame) -> dict:
     return inf.predict()
 
 
-def prediction_worker(
-        job: dict,
-        next_service: str,
-        b64_identity: str = None
-) -> Thread:
+def prediction_worker(id: str,
+                      raw_data: bytes,
+                      next_service: str,
+                      b64_identity: str = None) -> Thread:
     def worker() -> None:
         thread = current_thread()
         logger.debug('%s: Worker started', thread.name)
 
-        try:
-            batch_id, batch_data = job['id'], job['data']
-        except KeyError:
+        if not all((id, raw_data)):
             logger.error("%s: Invalid Job data, terminated.", thread.name)
             return
 
-        logger.info('%s: Job ID %s: Started...', thread.name, batch_id)
+        logger.info('%s: Job ID %s: Started...', thread.name, id)
         try:
-            data = pd.DataFrame.from_dict(batch_data)
+            data = pd.read_csv(BytesIO(raw_data))
         except ValueError:
             logger.error(
                 "%s: Job ID %s: Unable to parse data, terminated.",
-                thread.name, batch_id
+                thread.name, id
             )
             return
 
         logger.info(
             '%s: Job ID %s: Training model and predicting clusters...',
-            thread.name, batch_id
+            thread.name, id
         )
         try:
             model = _train(data)
@@ -114,20 +112,20 @@ def prediction_worker(
         except KeyError as e:
             logger.error(
                 "%s: Job ID %s: Preprocessing failed: Missing fields %s",
-                thread.name, batch_id, e
+                thread.name, id, e
             )
             return
 
         # Build response JSON
         output = {
-            'id': batch_id,
+            'id': id,
             'ai_service': 'ai_clustering',
             'data': clusters
         }
 
         logger.info(
             '%s: Job ID %s: Prediction done, publishing...',
-            thread.name, batch_id
+            thread.name, id
         )
         # Pass to the next service
         try:
@@ -140,7 +138,7 @@ def prediction_worker(
         except requests.HTTPError as exception:
             logger.error(
                 '%s: Failed to pass data for "%s": %s',
-                thread.name, batch_id, exception
+                thread.name, id, exception
             )
 
         logger.debug('%s: Done, exiting', thread.name)

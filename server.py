@@ -34,8 +34,9 @@ def index():
     next_service = APP.config['NEXT_MICROSERVICE_HOST']
 
     try:
-        input_data = request.get_json(force=True, cache=False)
-    except BadRequest:
+        raw_data = request.get_data()
+        job_id = request.headers['source_id']
+    except (BadRequest, KeyError):
         return jsonify(
             status='ERROR',
             message="Unable to parse input data JSON."
@@ -43,11 +44,7 @@ def index():
 
     b64_identity = request.headers.get('x-rh-identity')
 
-    prediction_worker(
-        input_data,
-        next_service,
-        b64_identity
-    )
+    prediction_worker(job_id, raw_data, next_service, b64_identity)
     APP.logger.info('Job started')
 
     return jsonify(
