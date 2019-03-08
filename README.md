@@ -1,19 +1,31 @@
 # Clustering Systems
 
 ## Running the clustering on OpenShift
-First, we need to get the application code on OpenShift. Once you have the code on openshift, you can have multiple instances of your experiment running with different parameters.
 
-To run this application on openshift, we need to create a container image for it. In other words, this means that we need to download the code that we want to run on openshift. To do this a image build template should already be available in your openshift namespace.
-
-To download the source code for our experiment to openshift, use the following command:
-```
-    oc process mlflow-experiment-bc --param APPLICATION_NAME=your-application-name --param GIT_URI=https://github.com/ManageIQ/aiops-insights-clustering.git --param APP_FILE=app.py | oc create -f -
-```
-If the image build process has started you should see some output like this:
+First you'll load the template that has all required resources
 
 ```
-    imagestream.image.openshift.io "your-application-name" created
-    buildconfig.build.openshift.io "your-application-name" created
+❯ oc create -f ./cluster-job-template.yaml -f ./build-config-template.yaml
+template "systems-clustering-job" created
+template "systems-clustering-bc-is" created
+```
+
+Then create the BuildConfig and ImageStream
+
+```
+❯ oc new-app --template systems-clustering-bc-is
+--> Deploying template "mhild-test/systems-clustering-bc-is" to project mhild-test
+
+     * With parameters:
+        * APPLICATION_NAME=systems-clustering
+        * GIT_URI=https://github.com/ManageIQ/aiops-insights-clustering.git
+
+--> Creating resources ...
+    buildconfig "systems-clustering" created
+    imagestream "systems-clustering" created
+--> Success
+    Use 'oc start-build systems-clustering' to start a build.
+    Run 'oc status' to view your app.
 ```
 
 ## Development workflow
@@ -23,12 +35,19 @@ Copy .env file and adjust variables
 ```
 cp .env.example .env
 ```
-After the image is built, we can use it to run the clustering on OpenShift.
 
+Start a build
 
-Edit the following line in the Makefile to set the APP_IMAGE_URI to your application image as follows:
 ```
-    oc new-app mlflow-experiment-job --param APP_IMAGE_URI=your-application-image-name\
+❯ oc start-build systems-clustering
+build "systems-clustering-1" started
+```
+
+Or to push your local committed code
+
+```
+g add .
+make oc_build_head
 ```
 
 And finally you can run a job that does the clustering
@@ -58,6 +77,82 @@ Name: cluster, Length: 40162, dtype: int32
 ```
 make test
 ```
+
+## Running the MLflow experiment on OpenShift
+
+This is a two stage process:
+- The first stage is to get the application code on OpenShift.
+- The second stage is to run the experiment
+
+Once you have the code on openshift, you can have multiple instances of your experiment running with different parameters.
+
+## First Stage: Obtaining the application code on OpenShift
+
+To run this application on openshift, we need to create a container image for it. In other words, this means that we need to download the code that we want to run on openshift. To do this a image build template should already be available in your openshift namespace.
+
+To download the source code for our experiment to openshift, use the following command:
+
+```
+    oc process mlflow-experiment-bc --param APPLICATION_NAME=your-application-name --param GIT_URI=https://github.com/ManageIQ/aiops-insights-clustering.git --param APP_FILE=app.py | oc create -f -
+
+```
+Building the container image can take a couple of minutes or more depending on the number of packages that need to be installed from the dependencies list.
+
+If the image build process has started you should see some output like this:
+
+```
+    imagestream.image.openshift.io "your-application-name" created
+    buildconfig.build.openshift.io "your-application-name" created
+```
+To see if the build process has finished, run the following command:
+```
+    oc logs bc/my-mlflow-experiment
+
+```
+
+## Second Stage: Running an experiment
+
+After the image is built, we can use it to run an experiment on OpenShift.
+
+Edit the following line in the Makefile to set the APP_IMAGE_URI to your application image as follows:
+
+```
+    oc new-app mlflow-experiment-job --param APP_IMAGE_URI=your-application-image-name
+```
+
+Similary, you can even set different model training parameters and variables such as the number of CPUs and memory size  as follows:
+
+```
+    --param LIMIT_CPU=4 \
+    --param LIMIT_MEM=16G \
+
+```
+
+Finally, you can run the experiment:
+
+```
+    make oc_run_experiment
+```
+
+This should run the experiment on OpenShift with the specified values of parameters. You can view the logs of the pod created for this experiment on OpenShift. 
+
+If you want to use a different mlflow tracking server, you can use the MLFLOW_TRACKING_URI parameter to specify its address as:
+
+```
+    --param MLFLOW_TRACKING_URI=http://mlflow-server-url:5000/
+    
+```
+The MLflow runs are logged remotely to a tracking server by connecting to the URI specified. 
+
+If you know your mlflow experiment ID, you can set it with the MLFLOW_EXPERIMENT_ID environment variable.
+```
+    --env MLFLOW_EXPERIMENT_ID=2
+```
+
+This will group all the different runs of the model under one experiment ID.
+
+The MLflow Tracking Server UI lets you visualize, search and compare runs, as well as download run artifacts or metadata for analysis in other tools.
+
 
 ## Local build
 
