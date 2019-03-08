@@ -15,7 +15,6 @@ oc_cluster_train:
 		--param CEPH_ENDPOINT=${CEPH_ENDPOINT} \
 		--param CEPH_BUCKET=${CEPH_BUCKET}
 
-
 oc_run_experiment:
 	oc new-app mlflow-experiment-job --param APP_IMAGE_URI=your-application-image-name\
 		--param LIMIT_CPU=4 \
