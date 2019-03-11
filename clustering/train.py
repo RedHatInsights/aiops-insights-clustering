@@ -148,7 +148,7 @@ class Cluster:
 
         self.inertia_dict, self.models_dict = {}, {}
         for ncl in range(self.n_clusters_low, self.n_clusters_high, self.n_clusters_stepsize):
-            kmeans = KMeans(n_clusters=ncl)
+            kmeans = KMeans(n_clusters=ncl, init='k-means++')
             kmeans.fit(self.data_for_kmeans)
 
             self.inertia_dict[ncl] = kmeans.inertia_
@@ -162,7 +162,7 @@ class Cluster:
         proc_list = []
         counter = 0
         def run(data, ncl):
-            kmeans = KMeans(n_clusters=ncl)
+            kmeans = KMeans(n_clusters=ncl, init='k-means++')
             kmeans.fit(data)
 
             inertia_shared_dict[ncl] = kmeans.inertia_
@@ -226,7 +226,7 @@ class Cluster:
         if not self.n_clusters_optimal:
             raise AttributeError("Please run find_n_clusters and find_elbow to find optimal n_clusters.")
 
-        self.kmeans_optimal = KMeans(n_clusters=self.n_clusters_optimal).fit(self.data_for_kmeans)
+        self.kmeans_optimal = KMeans(n_clusters=self.n_clusters_optimal, init='k-means++').fit(self.data_for_kmeans)
 
     def interpret(self):
         if self.kmeans_optimal is None:

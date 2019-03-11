@@ -15,5 +15,15 @@ oc_cluster_train:
 		--param CEPH_ENDPOINT=${CEPH_ENDPOINT} \
 		--param CEPH_BUCKET=${CEPH_BUCKET}
 
+oc_run_experiment:
+	oc new-app mlflow-experiment-job --param APP_IMAGE_URI=aiops-insights-clustering\
+		--param LIMIT_CPU=4 \
+		--param LIMIT_MEM=16G \
+                --env AIOPS_TRAINING_DATE=${AIOPS_TRAINING_DATE} \
+                --env CEPH_KEY=${CEPH_KEY} \
+                --env CEPH_SECRET=${CEPH_SECRET} \
+                --env CEPH_ENDPOINT=${CEPH_ENDPOINT} \
+                --env CEPH_BUCKET=${CEPH_BUCKET}
+
 test:
 	pipenv run pytest
