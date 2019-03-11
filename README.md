@@ -93,7 +93,7 @@ To run this application on openshift, we need to create a container image for it
 To download the source code for our experiment to openshift, use the following command:
 
 ```
-    oc process mlflow-experiment-bc --param APPLICATION_NAME=your-application-name --param GIT_URI=https://github.com/ManageIQ/aiops-insights-clustering.git --param APP_FILE=app.py | oc create -f -
+    oc process mlflow-experiment-bc --param APPLICATION_NAME=aiops-insights-clustering --param GIT_URI=https://github.com/ManageIQ/aiops-insights-clustering.git | oc create -f -
 
 ```
 Building the container image can take a couple of minutes or more depending on the number of packages that need to be installed from the dependencies list.
@@ -114,13 +114,7 @@ To see if the build process has finished, run the following command:
 
 After the image is built, we can use it to run an experiment on OpenShift.
 
-Edit the following line in the Makefile to set the APP_IMAGE_URI to your application image as follows:
-
-```
-    oc new-app mlflow-experiment-job --param APP_IMAGE_URI=your-application-image-name
-```
-
-Similary, you can even set different model training parameters and variables such as the number of CPUs and memory size  as follows:
+To set different model training parameters and variables such as the number of CPUs and memory size, you can add the additional parameters under the `oc_run_experiment` task in the Makefile as follows:
 
 ```
     --param LIMIT_CPU=4 \
