@@ -16,7 +16,7 @@ oc_cluster_train:
 		--param CEPH_BUCKET=${CEPH_BUCKET}
 
 oc_run_experiment:
-	oc new-app mlflow-experiment-job --param APP_IMAGE_URI=your-application-image-name\
+	oc new-app mlflow-experiment-job --param APP_IMAGE_URI=aiops-insights-clustering\
 		--param LIMIT_CPU=4 \
 		--param LIMIT_MEM=16G \
                 --env AIOPS_TRAINING_DATE=${AIOPS_TRAINING_DATE} \
