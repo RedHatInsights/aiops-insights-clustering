@@ -22,7 +22,6 @@ def do_tracking():
 def calculate_score(date_a, date_b):
     cluster_a = storage.read(date_a)
     cluster_b = storage.read(date_b)
-    
     inverse_cluster_a = invert_cluster(cluster_a)
     inverse_cluster_b = invert_cluster(cluster_b)
 
@@ -39,7 +38,6 @@ def calculate_score(date_a, date_b):
         # TODO: only look at systems present in both runs
 
         number_ids_in_both = len(systems_a.intersection(systems_b))
-
         median_number_ids_in_cluster = (len(systems_a) + len(systems_b)) / 2.0
         score = number_ids_in_both / median_number_ids_in_cluster
         
