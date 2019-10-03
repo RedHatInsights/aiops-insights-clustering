@@ -1,4 +1,6 @@
-# Clustering Systems
+# ⛔️ DEPRECATED: Clustering Systems
+
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 
 ## Running the clustering on OpenShift
 
@@ -128,15 +130,15 @@ Finally, you can run the experiment:
     make oc_run_experiment
 ```
 
-This should run the experiment on OpenShift with the specified values of parameters. You can view the logs of the pod created for this experiment on OpenShift. 
+This should run the experiment on OpenShift with the specified values of parameters. You can view the logs of the pod created for this experiment on OpenShift.
 
 If you want to use a different mlflow tracking server, you can use the MLFLOW_TRACKING_URI parameter to specify its address as:
 
 ```
     --param MLFLOW_TRACKING_URI=http://mlflow-server-url:5000/
-    
+
 ```
-The MLflow runs are logged remotely to a tracking server by connecting to the URI specified. 
+The MLflow runs are logged remotely to a tracking server by connecting to the URI specified.
 
 If you know your mlflow experiment ID, you can set it with the MLFLOW_EXPERIMENT_ID environment variable.
 ```
